@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,16 +15,15 @@
  **/
 
 var path = require("path");
-var bcrypt = require("bcryptjs");  // pastikan bcryptjs terinstall (npm install bcryptjs)
 var pgutil = require('./pgutil');
 
 process.env.NODE_RED_HOME = __dirname;
 pgutil.initPG();
 pgutil.createTable();
 
-var USERNAME = process.env.NODE_RED_USERNAME || "Iyanhafizh";
-var PASSWORD = process.env.NODE_RED_PASSWORD || "Btg040603";
-var HASHED_PASS = bcrypt.hashSync(PASSWORD, 8);
+// Hardcoded username & bcrypt hash (hash dari "Btg040603")
+var USERNAME = "Iyanhafizh";
+var HASHED_PASS = "$2a$08$PtGa6Cpm64SzGiO/sKcpkeAQZ6l8cD9tPG14ZAV4mEyDiTLeEJSMu"; 
 
 var settings = module.exports = {
     uiPort: process.env.PORT || 1880,
@@ -34,8 +33,10 @@ var settings = module.exports = {
     serialReconnectTime: 15000,
     debugMaxLength: 10000000,
 
-    // Disable/blacklist nodes not friendly on hosting
-    nodesExcludes:[ '66-mongodb.js','75-exec.js','35-arduino.js','36-rpi-gpio.js','25-serial.js','28-tail.js','50-file.js','31-tcpin.js','32-udp.js','23-watch.js' ],
+    nodesExcludes: [
+        '66-mongodb.js','75-exec.js','35-arduino.js','36-rpi-gpio.js',
+        '25-serial.js','28-tail.js','50-file.js','31-tcpin.js','32-udp.js','23-watch.js'
+    ],
 
     autoInstallModules: true,
 
@@ -49,39 +50,22 @@ var settings = module.exports = {
         }]
     },
 
-    // Dashboard login
+    // Dashboard httpNodeAuth (Basic Auth)
     httpNodeAuth: {
         user: USERNAME,
         pass: HASHED_PASS
     },
 
-    // CORS agar dashboard bisa diakses frontend lain (opsional)
     httpNodeCors: {
         origin: "*",
         methods: "GET,PUT,POST,DELETE"
     },
 
-    // Disables credential encryption if you want
     credentialSecret: false,
 
-    functionGlobalContext: { },
+    functionGlobalContext: {},
 
-    // Postgres storage (custom)
     storageModule: require("./pgstorage")
 };
 
-// Untuk jika pakai ENV dari platform hosting
-if (process.env.NODE_RED_USERNAME && process.env.NODE_RED_PASSWORD) {
-    settings.adminAuth.users = [{
-        username: process.env.NODE_RED_USERNAME,
-        password: bcrypt.hashSync(process.env.NODE_RED_PASSWORD, 8),
-        permissions: "*"
-    }];
-    settings.httpNodeAuth = {
-        user: process.env.NODE_RED_USERNAME,
-        pass: bcrypt.hashSync(process.env.NODE_RED_PASSWORD, 8)
-    };
-}
-
-// Custom untuk pgstorage
 settings.pgAppname = 'nodered';
