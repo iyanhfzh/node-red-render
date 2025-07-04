@@ -15,68 +15,73 @@
  **/
 
 var path = require("path");
-var when = require("when");
+var bcrypt = require("bcryptjs");  // pastikan bcryptjs terinstall (npm install bcryptjs)
 var pgutil = require('./pgutil');
 
 process.env.NODE_RED_HOME = __dirname;
 pgutil.initPG();
 pgutil.createTable();
 
+var USERNAME = process.env.NODE_RED_USERNAME || "Iyanhafizh";
+var PASSWORD = process.env.NODE_RED_PASSWORD || "Btg040603";
+var HASHED_PASS = bcrypt.hashSync(PASSWORD, 8);
+
 var settings = module.exports = {
     uiPort: process.env.PORT || 1880,
+    httpAdminRoot: '/',
+    httpNodeRoot: '/',
     mqttReconnectTime: 15000,
     serialReconnectTime: 15000,
     debugMaxLength: 10000000,
 
-    // Blacklist the non-bluemix friendly nodes
+    // Disable/blacklist nodes not friendly on hosting
     nodesExcludes:[ '66-mongodb.js','75-exec.js','35-arduino.js','36-rpi-gpio.js','25-serial.js','28-tail.js','50-file.js','31-tcpin.js','32-udp.js','23-watch.js' ],
 
-    // Enable module reinstalls on start-up; this ensures modules installed
-    // post-deploy are restored after a restage
     autoInstallModules: true,
 
-    // Move the admin UI
-    httpAdminRoot: '/',
+    // Admin UI login
+    adminAuth: {
+        type: "credentials",
+        users: [{
+            username: USERNAME,
+            password: HASHED_PASS,
+            permissions: "*"
+        }]
+    },
 
-    // You can protect the user interface with a userid and password by using the following property
-    // the password must be an md5 hash  eg.. 5f4dcc3b5aa765d61d8327deb882cf99 ('password')
-    //httpAdminAuth: {user:"user",pass:"5f4dcc3b5aa765d61d8327deb882cf99"},
+    // Dashboard login
+    httpNodeAuth: {
+        user: USERNAME,
+        pass: HASHED_PASS
+    },
 
-    // // Serve up the welcome page
-    // httpStatic: path.join(process.env.NODE_RED_HOME, "public"),
-
-    functionGlobalContext: { },
-
-    storageModule: require("./pgstorage"),
-
+    // CORS agar dashboard bisa diakses frontend lain (opsional)
     httpNodeCors: {
         origin: "*",
         methods: "GET,PUT,POST,DELETE"
     },
-    
-    // Disbled Credential Secret
-    credentialSecret: false
-}
 
+    // Disables credential encryption if you want
+    credentialSecret: false,
+
+    functionGlobalContext: { },
+
+    // Postgres storage (custom)
+    storageModule: require("./pgstorage")
+};
+
+// Untuk jika pakai ENV dari platform hosting
 if (process.env.NODE_RED_USERNAME && process.env.NODE_RED_PASSWORD) {
-    settings.adminAuth = {
-        type: "credentials",
-        users: function(username) {
-            if (process.env.NODE_RED_USERNAME == username) {
-                return when.resolve({username:username,permissions:"*"});
-            } else {
-                return when.resolve(null);
-            }
-        },
-        authenticate: function(username, password) {
-            if (process.env.NODE_RED_USERNAME == username &&
-                process.env.NODE_RED_PASSWORD == password) {
-                return when.resolve({username:username,permissions:"*"});
-            } else {
-                return when.resolve(null);
-            }
-        }
-    }
+    settings.adminAuth.users = [{
+        username: process.env.NODE_RED_USERNAME,
+        password: bcrypt.hashSync(process.env.NODE_RED_PASSWORD, 8),
+        permissions: "*"
+    }];
+    settings.httpNodeAuth = {
+        user: process.env.NODE_RED_USERNAME,
+        pass: bcrypt.hashSync(process.env.NODE_RED_PASSWORD, 8)
+    };
 }
 
+// Custom untuk pgstorage
 settings.pgAppname = 'nodered';
