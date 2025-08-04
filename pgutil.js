@@ -1,49 +1,40 @@
-const pg = require('pg');
+const { Pool } = require("pg");
+
 let pool = null;
 
-const initPG = () => {
+function initPG() {
   const pgUrl = process.env.DATABASE_URL;
-  console.log('pgUrl:', pgUrl);
-
   if (!pgUrl) {
-    console.warn('[pgutil] DATABASE_URL not set. Skipping PG init.');
+    console.warn("[pgutil] DATABASE_URL not found. Skipping PG setup.");
     return null;
   }
 
   try {
-    pool = new pg.Pool({
-      connectionString: pgUrl,
-      ssl: { rejectUnauthorized: false }
-    });
+    pool = new Pool({ connectionString: pgUrl });
     return pool;
   } catch (err) {
-    console.error('[pgutil] Failed to initialize PG:', err.message);
-    pool = null;
+    console.warn("[pgutil] Failed to init PG:", err.message);
     return null;
   }
-};
+}
 
-const doSQL = async (query, values) => {
-  let client;
+async function doSQL(query, values) {
+  if (!pool) return;
+
+  const client = await pool.connect();
   try {
-    if (!pool) throw new Error('No PG instance');
-    client = await pool.connect();
     return await client.query(query, values);
-  } catch (err) {
-    console.error('[pgutil] SQL Error:', err.message);
-    return null;
   } finally {
-    if (client) client.release();
+    client.release();
   }
-};
+}
 
-const createTable = async () => {
+async function createTable() {
   if (!pool) {
     console.warn('[pgutil] Pool not available. Skipping table creation.');
     return;
   }
 
-  console.log('[pgutil] Creating PostgreSQL tables...');
   const query = `
     CREATE TABLE IF NOT EXISTS "eConfigs" (
       id SERIAL PRIMARY KEY,
@@ -69,12 +60,16 @@ const createTable = async () => {
       data text
     );
   `;
-  await doSQL(query, null);
+
+  try {
+    await doSQL(query);
+  } catch (err) {
+    console.warn("[pgutil] Failed to create tables:", err.message);
+  }
+}
+
+module.exports = {
+  initPG,
+  createTable,
+  doSQL
 };
-
-// ... fungsi-fungsi lain (loadConfig, saveConfig, dst.) tetap sama ...
-// Untuk ringkasnya tidak dituliskan ulang di sini, karena tidak memicu error startup.
-
-exports.initPG = initPG;
-exports.createTable = createTable;
-// Ekspor fungsi lain jika tetap digunakan
