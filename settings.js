@@ -1,38 +1,39 @@
 const pgutil = require("./pgutil");
 
+// Konfigurasi default: pakai local filesystem
 let usePG = false;
 let storageModule = require("node-red/lib/storage/localfilesystem");
 
 try {
-  const pool = pgutil.initPG();
+  const pool = pgutil.initPg();
   if (pool) {
     usePG = true;
     pgutil.createTable()
       .then(() => console.log("[pgutil] Table creation completed."))
       .catch(err => console.warn("[pgutil] Table creation failed:", err.message));
   } else {
-    console.warn("[pgutil] PG init returned null. Using local storage.");
+    console.warn("[pgutil] PG init returned null. Using local filesystem storage.");
   }
 } catch (err) {
   console.warn("[pgutil] PG init error:", err.message);
 }
 
-// Gunakan storage yang sesuai
+// Ganti ke pgstorage jika DB tersedia
 if (usePG) {
-  storageModule = require("./pgstorage");
+  try {
+    storageModule = require("./pgstorage");
+    console.log("[pgutil] Using PostgreSQL storage module.");
+  } catch (err) {
+    console.warn("[pgutil] Failed to load pgstorage. Falling back to localfilesystem.");
+    storageModule = require("node-red/lib/storage/localfilesystem");
+  }
 }
 
-module.exports = {
-  // ...
-  storageModule: storageModule,
-  // ...
-}
-
-// Login Admin
+// Admin credentials
 const USERNAME = "Iyanhafizh";
 const HASHED_PASS = "$2a$08$PtGa6Cpm64SzGiO/sKcpkeAQZ6l8cD9tPG14ZAV4mEyDiTLeEJSMu";
 
-const settings = module.exports = {
+module.exports = {
   uiPort: process.env.PORT || 1880,
   httpAdminRoot: '/',
   httpNodeRoot: '/',
@@ -70,10 +71,7 @@ const settings = module.exports = {
 
   functionGlobalContext: {},
 
-  // OPTIONAL: ganti storageModule ke local jika ingin lepas dari PostgreSQL
-  // storageModule: require("node-red/lib/storage/localfilesystem")
+  storageModule: storageModule,
 
-  storageModule: require("./pgstorage") // biarkan ini jika ingin tetap pakai pgstorage saat DB aktif
+  pgAppname: 'nodered'
 };
-
-settings.pgAppname = 'nodered';
