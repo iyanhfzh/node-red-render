@@ -1,23 +1,31 @@
-const path = require("path");
 const pgutil = require("./pgutil");
 
-process.env.NODE_RED_HOME = __dirname;
+let usePG = false;
+let storageModule = require("node-red/lib/storage/localfilesystem");
 
-let pool;
 try {
-  pool = pgutil.initPG();
-
+  const pool = pgutil.initPG();
   if (pool) {
+    usePG = true;
     pgutil.createTable()
       .then(() => console.log("[pgutil] Table creation completed."))
-      .catch(err => {
-        console.warn("[pgutil] Table creation failed:", err.message);
-      });
+      .catch(err => console.warn("[pgutil] Table creation failed:", err.message));
   } else {
-    console.warn("[pgutil] Skipping table creation. PG pool not available.");
+    console.warn("[pgutil] PG init returned null. Using local storage.");
   }
 } catch (err) {
   console.warn("[pgutil] PG init error:", err.message);
+}
+
+// Gunakan storage yang sesuai
+if (usePG) {
+  storageModule = require("./pgstorage");
+}
+
+module.exports = {
+  // ...
+  storageModule: storageModule,
+  // ...
 }
 
 // Login Admin
