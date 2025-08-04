@@ -18,12 +18,19 @@ var path = require("path");
 var pgutil = require('./pgutil');
 
 process.env.NODE_RED_HOME = __dirname;
-pgutil.initPG();
-pgutil.createTable();
 
-// Hardcoded username & bcrypt hash (hash dari "Btg040603")
+const pool = pgutil.initPG();
+if (pool) {
+  pgutil.createTable().catch(err => {
+    console.error("Failed to create DB tables:", err.message);
+  });
+} else {
+  console.warn("PostgreSQL not initialized. Running Node-RED without DB.");
+}
+
+// Hardcoded username & bcrypt hash
 var USERNAME = "Iyanhafizh";
-var HASHED_PASS = "$2a$08$PtGa6Cpm64SzGiO/sKcpkeAQZ6l8cD9tPG14ZAV4mEyDiTLeEJSMu"; 
+var HASHED_PASS = "$2a$08$PtGa6Cpm64SzGiO/sKcpkeAQZ6l8cD9tPG14ZAV4mEyDiTLeEJSMu";
 
 var settings = module.exports = {
     uiPort: process.env.PORT || 1880,
@@ -40,7 +47,6 @@ var settings = module.exports = {
 
     autoInstallModules: true,
 
-    // Admin UI login
     adminAuth: {
         type: "credentials",
         users: [{
@@ -50,7 +56,6 @@ var settings = module.exports = {
         }]
     },
 
-    // Dashboard httpNodeAuth (Basic Auth)
     httpNodeAuth: {
         user: USERNAME,
         pass: HASHED_PASS
@@ -65,6 +70,9 @@ var settings = module.exports = {
 
     functionGlobalContext: {},
 
+    // Gunakan pgstorage hanya jika ingin tetap pakai DB
+    // Ganti ke localfilesystem jika ingin Node-RED berjalan tanpa DB sama sekali
+    // storageModule: require("node-red/lib/storage/localfilesystem")
     storageModule: require("./pgstorage")
 };
 
